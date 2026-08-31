@@ -39,10 +39,14 @@ python evaluate_lam.py \
   --num-samples 5000
 ```
 
-Completed checkpoints are skipped. Outputs are written to:
+Completed checkpoints are skipped. Each checkpoint writes `result.json`,
+`samples.jsonl`, and `reconstructions.png`; the suite root maintains a
+cross-checkpoint `summary.csv`.
 
 Use downstream action quality as the primary selection signal, nuisance
 leakage and latent health as gates, and reconstruction as a sanity check.
+The reference run, complete result tables, stopping decision, and limitations
+are summarized in [README.md](README.md).
 
 ## External Pantheon teleop suite
 
