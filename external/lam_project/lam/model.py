@@ -31,9 +31,13 @@ class LAM(LightningModule):
         beta: float = 0.01,
         log_interval: int = 1000,
         log_path: str = "log_imgs",
-        optimizer: OptimizerCallable = AdamW
+        optimizer: OptimizerCallable = AdamW,
+        init_checkpoint_path: str = None,
+        gradient_loss_scale: float = 1.0,
     ) -> None:
         super(LAM, self).__init__()
+        if not np.isfinite(gradient_loss_scale) or gradient_loss_scale <= 0:
+            raise ValueError("gradient_loss_scale must be finite and positive")
         self.lam = LatentActionModel(
             in_dim=image_channels,
             model_dim=lam_model_dim,
@@ -48,6 +52,18 @@ class LAM(LightningModule):
         self.log_interval = log_interval
         self.log_path = log_path
         self.optimizer = optimizer
+        self.gradient_loss_scale = gradient_loss_scale
+
+        if init_checkpoint_path:
+            checkpoint = torch.load(
+                init_checkpoint_path,
+                map_location="cpu",
+                weights_only=False,
+            )
+            state_dict = checkpoint.get("state_dict", checkpoint)
+            self.load_state_dict(state_dict, strict=True)
+            del checkpoint, state_dict
+            print(f"Initialized LAM weights from {init_checkpoint_path}")
 
         self.save_hyperparameters()
 
@@ -97,7 +113,10 @@ class LAM(LightningModule):
 
         if batch_idx % self.log_interval == 0:  # Start of the epoch
             self.log_images(batch, outputs, "train")
-        return loss
+        # DDP averages gradients uniformly across ranks.  Scaling the local
+        # mean loss lets ranks use different local batch sizes while still
+        # producing the exact sample-weighted global-batch gradient.
+        return loss * self.gradient_loss_scale
 
     # @torch.no_grad()
     # def validation_step(self, batch: Dict, batch_idx: int) -> Tensor:

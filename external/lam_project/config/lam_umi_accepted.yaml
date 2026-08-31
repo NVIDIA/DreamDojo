@@ -1,0 +1,62 @@
+model:
+  image_channels: 3
+
+  lam_model_dim: 1024
+  lam_latent_dim: 32
+  lam_patch_size: 16
+  lam_enc_blocks: 24
+  lam_dec_blocks: 24
+  lam_num_heads: 16
+
+  beta: 0.000001
+  log_interval: 1000
+  log_path: exp_imgs
+  optimizer:
+    class_path: torch.optim.AdamW
+    init_args:
+      lr: 2.5e-5
+      weight_decay: 1e-2
+
+data:
+  batch_size: 20
+  num_workers: 8
+  lance_dataset_path: /umi-data/processed-lance-umi-files-sambhav/episodes.lance
+  lance_dataset_version: 32949
+  camera_allowlist:
+    - left_wrist
+    - right_wrist
+    - overhead
+  time_gaps_s:
+    - 0.1
+    - 0.2
+    - 0.3
+    - 0.4
+  randomize: true
+  num_frames: 2
+  output_format: t h w c
+  samples_per_epoch: 10000000
+
+trainer:
+  max_epochs: 1000
+  accelerator: gpu
+  num_nodes: 1
+  devices: 0,1,2,3,4,5,6,7
+  strategy: ddp_find_unused_parameters_false
+  precision: 16-mixed
+  log_every_n_steps: 1000
+  accumulate_grad_batches: 1
+  gradient_clip_val: 0.3
+
+  callbacks:
+    - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+      init_args:
+        dirpath: exp_ckpts
+        verbose: true
+        save_last: true
+        save_top_k: -1
+
+  logger:
+    - class_path: lightning.pytorch.loggers.TensorBoardLogger
+      init_args:
+        save_dir: exp_logs
+        name: lam-umi-accepted

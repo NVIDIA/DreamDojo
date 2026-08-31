@@ -1,0 +1,68 @@
+model:
+  image_channels: 3
+  lam_model_dim: 1024
+  lam_latent_dim: 32
+  lam_patch_size: 16
+  lam_enc_blocks: 24
+  lam_dec_blocks: 24
+  lam_num_heads: 16
+  beta: 0.000001
+  log_interval: 1000
+  log_path: /tmp/lam-umi-accepted-continued/images
+  init_checkpoint_path: /checkpoints/dreamdojo-pretrain/models/LAM_400k.ckpt
+  gradient_loss_scale: 1.05
+  optimizer:
+    class_path: torch.optim.AdamW
+    init_args:
+      lr: 2.5e-5
+      weight_decay: 1e-2
+
+data:
+  batch_size: 7
+  num_workers: 2
+  multiprocessing_context: spawn
+  persistent_workers: true
+  lance_dataset_path: /umi-data/processed-lance-umi-files-sambhav/episodes.lance
+  lance_dataset_version: 32949
+  camera_allowlist:
+    - left_wrist
+    - right_wrist
+    - overhead
+  time_gaps_s:
+    - 0.1
+    - 0.2
+    - 0.3
+    - 0.4
+  randomize: true
+  num_frames: 2
+  output_format: t h w c
+  samples_per_epoch: 10000000
+
+trainer:
+  max_epochs: 1000
+  max_steps: 400000
+  accelerator: gpu
+  num_nodes: 3
+  devices: 8
+  strategy: ddp_find_unused_parameters_false
+  precision: 16-mixed
+  enable_checkpointing: false
+  log_every_n_steps: 1000
+  accumulate_grad_batches: 1
+  gradient_clip_val: 0.3
+
+  callbacks:
+    - class_path: lam.callbacks.RollingCheckpoint
+      init_args:
+        dirpath: /checkpoints/dreamdojo-lam/runs/umi-accepted-continued-700m-b160-v1/checkpoints
+        every_n_train_steps: 500
+        milestone_every_n_train_steps: 10000
+        preserve_steps:
+          - 500
+        rolling_filename: last.ckpt
+
+  logger:
+    - class_path: lightning.pytorch.loggers.TensorBoardLogger
+      init_args:
+        save_dir: /tmp/lam-umi-accepted-continued/logs
+        name: lam-umi-accepted
