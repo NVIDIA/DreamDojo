@@ -865,7 +865,10 @@ class Text2WorldModelRectifiedFlow(ImaginaireModel):
         with torch.no_grad():
             outputs = self.lam.lam(lam_input)
         latent_action = outputs["z_rep"].squeeze().to(data_batch["action"].dtype).detach()
-        latent_action = rearrange(latent_action, "(t b) d -> b t d", t=data_batch["action"].shape[1])
+        # ``lam_video`` is flattened in batch-major order (b, p) above.  Keep
+        # that order when restoring the per-sample action sequence; using
+        # (t, b) here silently mixes action tokens between batch elements.
+        latent_action = rearrange(latent_action, "(b t) d -> b t d", t=data_batch["action"].shape[1])
         data_batch["action"][:, :, -32:] = data_batch["action"][:, :, -32:] * latent_action
 
         # Get the input data to noise and denoise~(image, video) and the corresponding conditioner.
